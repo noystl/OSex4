@@ -1,3 +1,4 @@
+#include <cmath>
 #include "VirtualMemory.h"
 #include "PhysicalMemory.h"
 
@@ -18,15 +19,48 @@ uint64_t findFrame(const uint64_t (&doNotDelete)[TABLES_DEPTH]){ // Gets an arra
     return phisicalAddr;
 }
 
+
+
 /**
- * Returns a "substring" of the address according to the mask, and moves it around according to the shifts.
- * Example: If the address is 1000101, the mask is 1110000
+ * Returns a "substring" of the address according to the mask, and moves it left according to the shifts.
+ * Example: If address = 1000101, mask = 1110000 and shifts = 4, getSubAddress() returns 0000100.
  * @param mask
  * @param shifts
  * @return
  */
-uint64_t getSubAddress(uint64_t  Address, uint64_t mask, uint64_t shifts){
+uint64_t getSubAddress(uint64_t  address, uint64_t mask, int shifts){
+    // Apply mask:
+    uint64_t temp = address & mask;
 
+    // Shift as needed:
+    temp = temp >> shifts;
+
+    return temp;
+}
+
+/**
+ * Creates a mask for subsequent bits according to length and position.
+ * Examples:
+ * If length = 3 and position = 2 the mask will be 11100.
+ * If length = 2 and position = 5 the mask will be 1100000.
+ * @param length
+ * @param position
+ * @return
+ */
+uint64_t createMask(int length, int position){
+    uint64_t mask = 0;
+    uint64_t oneBit = 1;                // in binary 0000000.....0001
+
+    // Turn on the correct number of bits:
+    for(int i = 0; i < length; i++){
+        mask += oneBit;
+        oneBit = oneBit << 1;
+    }
+
+    // Move the bits to the correct place:
+    mask = mask << position;
+
+    return mask;
 }
 
 
@@ -37,8 +71,25 @@ uint64_t getSubAddress(uint64_t  Address, uint64_t mask, uint64_t shifts){
  * @param searchRows
  */
 void translatePreprocces(uint64_t virtualAddress, uint64_t& offset, uint64_t& pageIndex,
-        uint64_t (&searchRows)[TABLES_DEPTH]){
+                         uint64_t (&searchRows)[TABLES_DEPTH]){
 
+    // Init offset:
+    uint64_t offsetMask = createMask(OFFSET_WIDTH, 0);
+    offset = getSubAddress(virtualAddress, offsetMask, 0);
+
+    // Init pageIndex:
+    int bitsForPageIndex = VIRTUAL_ADDRESS_WIDTH - OFFSET_WIDTH;
+    uint64_t pageIndexMask = createMask(bitsForPageIndex, OFFSET_WIDTH);
+    pageIndex = getSubAddress(virtualAddress, pageIndexMask, OFFSET_WIDTH);
+
+    // Init searchRows:
+    int bitsForRow = std::ceil( (float)bitsForPageIndex / (float)TABLES_DEPTH);
+    uint64_t currRowMask = createMask(bitsForRow, 0);
+
+    for(int i = 0; i < TABLES_DEPTH; i++){
+        searchRows[(TABLES_DEPTH - 1) - i] = getSubAddress(pageIndex, currRowMask, i*bitsForRow);
+        currRowMask = currRowMask << bitsForRow;
+    }
 }
 
 /**
