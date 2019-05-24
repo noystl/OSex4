@@ -113,7 +113,7 @@ uint64_t translate(uint64_t toTrans){
     PMread(currFrameIndex * PAGE_SIZE + searchRows[0], &nextFrameIndex);
 
     // Find the frame for the requested page:
-    for(int i = 1; i < (TABLES_DEPTH - 1); i++){
+    for(int i = 0; i < TABLES_DEPTH - 1; i++){
         // If the requested table is not in memory (Page Fault):
         if(nextFrameIndex == 0){
             // Find and init a new table:
@@ -127,7 +127,7 @@ uint64_t translate(uint64_t toTrans){
         }
 
         currFrameIndex = nextFrameIndex;
-        PMread(currFrameIndex * PAGE_SIZE + searchRows[0], &nextFrameIndex);
+        PMread(currFrameIndex * PAGE_SIZE + searchRows[i + 1], &nextFrameIndex);
     }
 
 
