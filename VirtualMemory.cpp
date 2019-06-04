@@ -80,41 +80,41 @@ static bool printType = false; // You may change this to True if you want.
 //    resetRAM();
 //    VMinitialize();
 //
-////	printRAM();
-////	printTree();
-////	cout <<
-////		 "State 0, after calling:\nVMwrite(13, 3)" << endl;
-////	assertRAM(state0);
+//	printRAM();
+//	printTree();
+//	cout <<
+//		 "State 0, after calling:\nVMwrite(13, 3)" << endl;
+//	assertRAM(state0);
 //
 //    VMwrite(13, 3);
-////	printRAM();
-////	printTree();
-////	cout <<
-////		 "State 1, after calling:\nVMwrite(13, 3)" << endl;
-////	assertRAM(state1);
+//	printRAM();
+//	printTree();
+//	cout <<
+//		 "State 1, after calling:\nVMwrite(13, 3)" << endl;
+//	assertRAM(state1);
 //
 //
-////	VMread(13, &word);
-////	printRAM();
-////	printTree();
-////	cout <<
-////		 "State 1a, after calling:\nVMwrite(13, 3)\nVMread(13, &word)" << endl;
-////	assertRAM(state1);
-////	if (word != 3)
-////	{
-////		cout
-////				<< "After the call VMwrite(13, 3) and then VMread(13, &word), word should be equal to 3 but"
-////				   " word = " << word << endl;
-////		cout << "Test failed. Aborting..." << endl;
-////		exit(1);
-////	}
+//	VMread(13, &word);
+//	printRAM();
+//	printTree();
+//	cout <<
+//		 "State 1a, after calling:\nVMwrite(13, 3)\nVMread(13, &word)" << endl;
+//	assertRAM(state1);
+//	if (word != 3)
+//	{
+//		cout
+//				<< "After the call VMwrite(13, 3) and then VMread(13, &word), word should be equal to 3 but"
+//				   " word = " << word << endl;
+//		cout << "Test failed. Aborting..." << endl;
+//		exit(1);
+//	}
 //
 //    VMread(6, &word);
-////	printRAM();
-////	printTree();
-////	cout <<
-////		 "State 2, after calling:\nVMwrite(13, 3)\nVMread(13, &word)\nVMread(6, &word)" << endl;
-////	assertRAM(state2);
+//	printRAM();
+//	printTree();
+//	cout <<
+//		 "State 2, after calling:\nVMwrite(13, 3)\nVMread(13, &word)\nVMread(6, &word)" << endl;
+//	assertRAM(state2);
 //
 //
 //    VMread(31, &word);
@@ -142,6 +142,7 @@ static bool printType = false; // You may change this to True if you want.
 //        exit(1);
 //    }
 //
+//std::cout << "FROM HERE\n";
 //
 //    VMwrite(31, 99);
 //    printRAM();
@@ -373,28 +374,34 @@ void dereferenceFromParent(const word_t& currIdx, const word_t& parentIdx)
 bool findFrameHelper(word_t currFrameIdx, unsigned int hierLevel, word_t currParentIdx, uint64_t currPath, uint64_t &pathToFrame,
                      word_t &emptyFrameIdx, word_t &unusedFrameIdx, word_t &frameIdxWithMaxCyclicScore,
                      uint64_t &maxCyclicScore, word_t &parentIdx,
-                     const uint64_t &pageIndex, const uint64_t (&doNotDelete)[TABLES_DEPTH], bool &isAPage)
+                     const uint64_t &pageIndex, const word_t (&doNotDelete)[TABLES_DEPTH])
 {
 
     bool isFirstFulfilled = true;
     word_t tableEntry;
 
-    // Check if 1st criteria is fulfilled:
-    for (uint64_t i = 0; i < PAGE_SIZE; ++i) //stop condition: empty frame.
+    if(hierLevel == TABLES_DEPTH) // if a leaf, can't return on 1st criteria
     {
-        //std::cout << "PMread input(line34): " << currFrameIdx * PAGE_SIZE + i << std::endl;
-        //std::cout << "currFrameIndex: " << currFrameIdx << std::endl;
-        PMread(currFrameIdx * PAGE_SIZE + i, &tableEntry);
-        if (tableEntry != 0)
+        isFirstFulfilled = false;
+    }
+
+    else{ // for inner nodes: check if 1st criteria is fulfilled:
+
+        for (uint64_t i = 0; i < PAGE_SIZE; ++i) //stop condition: empty frame.
         {
-            isFirstFulfilled = false;
-            if(hierLevel <= TABLES_DEPTH)
+            //std::cout << "PMread input(line34): " << currFrameIdx * PAGE_SIZE + i << std::endl;
+            //std::cout << "currFrameIndex: " << currFrameIdx << std::endl;
+            PMread(currFrameIdx * PAGE_SIZE + i, &tableEntry);
+            if (tableEntry != 0)
             {
+                isFirstFulfilled = false;
                 unusedFrameIdx = MAX(unusedFrameIdx, tableEntry); //maintain 2nd criteria.
                 //std::cout << " max frame: " << unusedFrameIdx<< std::endl;
+
             }
         }
     }
+
 
     //std::cout << "max until now: " << unusedFrameIdx << std::endl;
 
@@ -407,10 +414,6 @@ bool findFrameHelper(word_t currFrameIdx, unsigned int hierLevel, word_t currPar
             //prepare for successful return on 1st criteria:
             parentIdx = currParentIdx;
             emptyFrameIdx = currFrameIdx;
-            if(hierLevel == TABLES_DEPTH) //prepare for eviction in case this is a page
-            {
-                isAPage = true;
-            }
         }
         else{
             isFirstFulfilled = false;
@@ -447,14 +450,12 @@ bool findFrameHelper(word_t currFrameIdx, unsigned int hierLevel, word_t currPar
 
             for (uint64_t i = 0; i < PAGE_SIZE; ++i)
             {
-                //std::cout << "PMread input(line88): " << currFrameIdx * PAGE_SIZE + i << std::endl;
                 PMread((uint64_t)currFrameIdx * PAGE_SIZE + i, &tableEntry);
                 if (tableEntry != 0)
                 {
-
                      isFirstFulfilled = isFirstFulfilled || findFrameHelper(tableEntry, hierLevel + 1, currFrameIdx, (pathOfSon | i), pathToFrame,
                                     emptyFrameIdx, unusedFrameIdx, frameIdxWithMaxCyclicScore,
-                                    maxCyclicScore, parentIdx, pageIndex, doNotDelete, isAPage);
+                                    maxCyclicScore, parentIdx, pageIndex, doNotDelete);
                 }
             }
         }
@@ -466,18 +467,17 @@ bool findFrameHelper(word_t currFrameIdx, unsigned int hierLevel, word_t currPar
 
 
 
-word_t findFrame(const uint64_t &pageIndex, const uint64_t (&doNotDelete)[TABLES_DEPTH])
+word_t findFrame(const uint64_t &pageIndex, const word_t (&doNotDelete)[TABLES_DEPTH])
 {
     //will contain the frames that answer thw 1st, 2nd and 3rd criteria accordingly:
     word_t emptyFrameIdx = 0, unusedFrameIdx = 0, frameIdxWithMaxCyclicScore = 0;
     uint64_t maxCyclicScore = 0;
     word_t parentIdx = 0;
     uint64_t pathToFrame = 0;
-    bool isAPage = false;
 
     bool isFirstFulfilled = findFrameHelper(0, 0, 0, 0, pathToFrame, emptyFrameIdx, unusedFrameIdx,
                                             frameIdxWithMaxCyclicScore, maxCyclicScore,
-                                            parentIdx, pageIndex, doNotDelete, isAPage);
+                                            parentIdx, pageIndex, doNotDelete);
 //    printRAM();
 //    printTree();
 
@@ -487,19 +487,16 @@ word_t findFrame(const uint64_t &pageIndex, const uint64_t (&doNotDelete)[TABLES
         //std::cout << "EMPTY" <<std::endl;
 
         dereferenceFromParent(emptyFrameIdx, parentIdx);
-        if (isAPage)
-        {
-            PMevict(emptyFrameIdx, pathToFrame);
-        }
         return emptyFrameIdx;
     }
+
     if (unusedFrameIdx + 1 < NUM_FRAMES)
     {
         //std::cout << "MAXED" <<std::endl;
-        //std::cout << "max: " << unusedFrameIdx << std::endl;
 
         return unusedFrameIdx + 1;
     }
+    //std::cout << "max: " << unusedFrameIdx << std::endl;
 
     //std::cout << "SWAPPED" <<std::endl;
     //std::cout << "evict: " << pathToFrame << " from: " << frameIdxWithMaxCyclicScore << std::endl;
@@ -588,7 +585,7 @@ void translatePreproccess(uint64_t virtualAddress, uint64_t& offset, uint64_t& p
  * @return: The translation to physical address.
  */
 uint64_t translate(uint64_t toTrans){
-    uint64_t doNotEvict[TABLES_DEPTH] = {0};
+    word_t doNotEvict[TABLES_DEPTH] = {0};
     uint64_t usedTablesNum = 1;        // This is also the number of elements stored in doNotEvict.
     uint64_t searchRows[TABLES_DEPTH];  // Holds indexes of table entries relevant to the search.
     uint64_t offset;
@@ -613,10 +610,12 @@ uint64_t translate(uint64_t toTrans){
             clearTable(nextFrameIndex);
             PMwrite(currFrameIndex * PAGE_SIZE + searchRows[i], nextFrameIndex);
 
-            // Verify it won't be deleted next time we'll need an empty frame:
-            doNotEvict[usedTablesNum] = nextFrameIndex;
-            usedTablesNum++;
+
         }
+// Verify it won't be deleted next time we'll need an empty frame
+        doNotEvict[usedTablesNum] = nextFrameIndex;
+        usedTablesNum++;
+
 
         currFrameIndex = nextFrameIndex;
         //std::cout << "PMread input(line258): " << currFrameIndex * PAGE_SIZE + searchRows[0] << std::endl;
@@ -680,28 +679,28 @@ int VMwrite(uint64_t virtualAddress, word_t value) {
 
 
 //////Simple
-#include <cstdio>
-#include <cassert>
-
-int main(int argc, char **argv) {
-    VMinitialize();
-    for (uint64_t i = 0; i < (2 * NUM_FRAMES); ++i) {
-        printf("writing to %llu: %d\n", (long long int) i, (word_t)i);
-        //std::cout << "virtAddr: " << 5 * i * PAGE_SIZE << std::endl;
-        VMwrite(5 * i * PAGE_SIZE, (word_t)i);
-    }
-
-    for (uint64_t i = 0; i < (2 * NUM_FRAMES) ; ++i) {
-        word_t value;
-        //std::cout << "virtAddr: " << 5 * i * PAGE_SIZE << std::endl;
-        VMread(5 * i * PAGE_SIZE, &value);
-        printf("reading from %llu: %d\n", (long long int) i, value);
-        assert(uint64_t(value) == i);
-    }
-    printf("success\n");
-
-    return 0;
-}
+//#include <cstdio>
+//#include <cassert>
+//
+//int main(int argc, char **argv) {
+//    VMinitialize();
+//    for (uint64_t i = 0; i < (2 * NUM_FRAMES); ++i) {
+//        printf("writing to %llu: %d\n", (long long int) i, (word_t)i);
+//        //std::cout << "virtAddr: " << 5 * i * PAGE_SIZE << std::endl;
+//        VMwrite(5 * i * PAGE_SIZE, (word_t)i);
+//    }
+//
+//    for (uint64_t i = 0; i < (2 * NUM_FRAMES) ; ++i) {
+//        word_t value;
+//        //std::cout << "virtAddr: " << 5 * i * PAGE_SIZE << std::endl;
+//        VMread(5 * i * PAGE_SIZE, &value);
+//        printf("reading from %llu: %d\n", (long long int) i, value);
+//        assert(uint64_t(value) == i);
+//    }
+//    printf("success\n");
+//
+//    return 0;
+//}
 
 
 ////Simpler Simple:
