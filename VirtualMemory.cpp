@@ -478,7 +478,7 @@ word_t findFrame(const uint64_t &pageIndex, const word_t (&doNotDelete)[TABLES_D
     bool isFirstFulfilled = findFrameHelper(0, 0, 0, 0, pathToFrame, emptyFrameIdx, unusedFrameIdx,
                                             frameIdxWithMaxCyclicScore, maxCyclicScore,
                                             parentIdx, pageIndex, doNotDelete);
-//    printRAM();
+    printRAM();
 //    printTree();
 
     if (isFirstFulfilled)
@@ -570,7 +570,7 @@ void translatePreproccess(uint64_t virtualAddress, uint64_t& offset, uint64_t& p
     pageIndex = getSubAddress(virtualAddress, pageIndexMask, OFFSET_WIDTH);
 
     // Init searchRows:
-    int bitsForRow = std::ceil( (float)bitsForPageIndex / (float)TABLES_DEPTH);
+    int bitsForRow = (int)(std::ceil( (float)bitsForPageIndex / (float)TABLES_DEPTH));
     uint64_t currRowMask = createMask(bitsForRow, 0);
 
     for(int i = 0; i < TABLES_DEPTH; i++){
@@ -607,12 +607,12 @@ uint64_t translate(uint64_t toTrans){
             // Find and init a new table:
             nextFrameIndex = findFrame(pageIndex, doNotEvict);
             //std::cout << "findFrame output: " << nextFrameIndex << std::endl;
-            clearTable(nextFrameIndex);
+            clearTable((uint64_t)nextFrameIndex);
             PMwrite(currFrameIndex * PAGE_SIZE + searchRows[i], nextFrameIndex);
 
 
         }
-// Verify it won't be deleted next time we'll need an empty frame
+        // Verify it won't be deleted next time we'll need an empty frame
         doNotEvict[usedTablesNum] = nextFrameIndex;
         usedTablesNum++;
 
@@ -627,7 +627,7 @@ uint64_t translate(uint64_t toTrans){
     if(nextFrameIndex == 0){
         nextFrameIndex = findFrame(pageIndex, doNotEvict);
         //std::cout << "findFrame output: " << nextFrameIndex << std::endl;
-        PMrestore(nextFrameIndex, pageIndex);
+        PMrestore((uint64_t)nextFrameIndex, pageIndex);
         PMwrite(currFrameIndex * PAGE_SIZE + searchRows[TABLES_DEPTH - 1], nextFrameIndex);
     }
 
@@ -643,6 +643,9 @@ void VMinitialize() {
 }
 
 int VMread(uint64_t virtualAddress, word_t* value) {
+    if(virtualAddress >= VIRTUAL_MEMORY_SIZE){
+        return 0;
+    }
     uint64_t physicalAddress = translate(virtualAddress);
     PMread(physicalAddress, value);
 //    std::cout << "Reading from: " << physicalAddress << " this value: " << *value << std::endl;
@@ -651,6 +654,9 @@ int VMread(uint64_t virtualAddress, word_t* value) {
 
 
 int VMwrite(uint64_t virtualAddress, word_t value) {
+    if(virtualAddress >= VIRTUAL_MEMORY_SIZE){
+        return 0;
+    }
     uint64_t physicalAddress = translate(virtualAddress);
     PMwrite(physicalAddress, value);
     //std::cout << "Writing to: " << physicalAddress << " this value: " << value << std::endl;
@@ -679,28 +685,28 @@ int VMwrite(uint64_t virtualAddress, word_t value) {
 
 
 //////Simple
-//#include <cstdio>
-//#include <cassert>
-//
-//int main(int argc, char **argv) {
-//    VMinitialize();
-//    for (uint64_t i = 0; i < (2 * NUM_FRAMES); ++i) {
-//        printf("writing to %llu: %d\n", (long long int) i, (word_t)i);
-//        //std::cout << "virtAddr: " << 5 * i * PAGE_SIZE << std::endl;
-//        VMwrite(5 * i * PAGE_SIZE, (word_t)i);
-//    }
-//
-//    for (uint64_t i = 0; i < (2 * NUM_FRAMES) ; ++i) {
-//        word_t value;
-//        //std::cout << "virtAddr: " << 5 * i * PAGE_SIZE << std::endl;
-//        VMread(5 * i * PAGE_SIZE, &value);
-//        printf("reading from %llu: %d\n", (long long int) i, value);
-//        assert(uint64_t(value) == i);
-//    }
-//    printf("success\n");
-//
-//    return 0;
-//}
+#include <cstdio>
+#include <cassert>
+
+int main(int argc, char **argv) {
+    VMinitialize();
+    for (uint64_t i = 0; i < (2 * NUM_FRAMES); ++i) {
+        printf("writing to %llu: %d\n", (long long int) i, (word_t)i);
+        //std::cout << "virtAddr: " << 5 * i * PAGE_SIZE << std::endl;
+        VMwrite(5 * i * PAGE_SIZE, (word_t)i);
+    }
+
+    for (uint64_t i = 0; i < (2 * NUM_FRAMES) ; ++i) {
+        word_t value;
+        //std::cout << "virtAddr: " << 5 * i * PAGE_SIZE << std::endl;
+        VMread(5 * i * PAGE_SIZE, &value);
+        printf("reading from %llu: %d\n", (long long int) i, value);
+        assert(uint64_t(value) == i);
+    }
+    printf("success\n");
+
+    return 0;
+}
 
 
 ////Simpler Simple:
@@ -732,7 +738,7 @@ int VMwrite(uint64_t virtualAddress, word_t value) {
 //}
 
 
-//// Example:
+// Example:
 //#include <cassert>
 //
 //int main(int argc, char **argv) {

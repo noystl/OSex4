@@ -1,0 +1,9 @@
+noystl, baraloni
+Noy Sternlicht (205765365), Bar Aloni (305230740)
+EX: 4
+
+FILES:
+README -- This file.
+Makefile -- A file containing a set of directives used by a make build automation tool to generate
+the libMapReduceFramework.a  static library.
+VirtualMemory.cpp -- Implements reading from the virtual memory and writing to it.
